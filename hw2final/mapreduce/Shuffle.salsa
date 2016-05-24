@@ -1,0 +1,142 @@
+module mapreduce;
+
+/*
+THE GOAL OF THE BEHAVIOR SHUFFLE IS TO TAKE IN A PAIR AND ADD THE INFO INTO A VECTOR OF PAIRS WITH INFO.
+THIS IS DONE WITH TWO FUNCTIONS: SHUFFLE AND GET.
+
+SHUFFLE:
+FOR THE CASE WHEN WE HAVE A SINGLE DOC, WE RECENT PAIR(CHAR, 1) AND WILL ADD IT TO IT'S VECTOR OF ALL CHARS
+IN THE FOLLOWING FORM VECTOR(PAIR(CHAR,VECTOR(1,1,1))). IF THE CHAR'S MATCH, ANOTHER 1 IS ADDED TO THE VECTOR
+INSIDE THE PAIR. IF NO CHARS MATCH, A NEW PAIR IS CREATED IN THE FORM PAIR(CHAR,VECTOR(1)) TO THE VECTOR.
+
+IF HAVE A FILE OF DIFFERENT DOCUMENTS, WE HAVE A VECTOR IN THIS FORM: VECTOR(PAIR(WORD, PAIR(DOC, VECTOR(1, 1, 1))))
+IF THE WORD AND THE DOCUMENT MATCH, THE VECTOR OF INTS HAS ANOTHER 1 ADDED. IF THE WORD MATCHES BUT NOT THE DOCUMENT, 
+WE CREATE PAIR(DOC, VECTOR(1)). IF NO WORD MATCHES, THEN WE CREATE A PAIR(WORD, PAIR(DOC, VECTOR(1))) AND ADD IT TO
+THE MAIN VECTOR.
+
+GET:
+ONCE ALL THE PROCESSING FOR SHUFFLE IS DONE, WE CAN TAKE THE VECTOR FROM THE SHUFFLE ACTOR AND RETURN IT AS A TOKEN.
+*/
+
+behavior Shuffle {
+  MapReduce kernel;
+  Vector words;
+
+  public Shuffle(MapReduce mr) {
+      kernel = mr;
+      words = new Vector();
+      System.out.println(self);
+
+  }
+  public void shuffle(Pair p) {
+  	/*
+  	THE FOLLOWING COMMENT IS FROM THE PROCESS, IT HELPED US UNDERSTAND HOW
+  	TO CODEOUR SOLUTION. WE HAVE LEFT IT SO YOU CAN SEE OUR PROCESS.
+
+
+    //THIS FUNCTION IS GETTING DATA IN THE STYLE (WORD, (DOC, 1))
+    //I AM PRETTY SURE WE CAN REUSE THE CODE WE HAVE IN THE "ELSE"
+    //STATEMENT AND REARRANGE THE OVERALL CODE IN THE FUNCTION IF 
+    //WE HANDLE THE (WORD, (DOC, 1)) CORRECTLY
+    //(WORD,[(DOC1, [1,1]),(DOC2,[1])])
+    //If it's word count
+
+    */
+
+    //CHECKS IF IT'S CHAR OR WORD
+    if (!(p.value instanceof Integer))
+    { //Initialization if there is nothing there
+      if (words.size() ==0)
+      {
+        // setup the format (Word, [(Doc1, [1,1])])
+        Vector temp_vec = new Vector();
+        temp_vec.add(1);
+        Pair z = new Pair( (String)((Pair) p.value).key  ,temp_vec);
+        Vector doc_vec = new Vector();
+        doc_vec.add(z);
+        Pair x = new Pair((String)p.key, doc_vec);
+        words = new Vector();
+        words.add(x);
+      }
+      else
+      {
+      	//SEARCHING TO SEE IF THIS WORD HAS BEEN ADDED TO THE VECTOR OF ALL WORDS YET
+        for (int i = 0; i < words.size();i++)
+        {
+
+          Pair q = (Pair) (words.get(i));
+
+          //if the the Word is the same; AS IN IF THE WORD IS ALREADY IN THE VECTOR OF WORDS
+          if (((String)(q.key)).equals((String)p.key))
+          {
+            Vector vwords = ((Vector)q.value);
+            for (int j =0; j < vwords.size(); j++)
+            {
+              Pair vword = (Pair) (vwords.get(j));
+              String str1 = (String)(vword.key);
+              //check if doc is the same
+              String str2 = (String) ((Pair) (p.value)).key;
+              if (str1.equals(str2))
+              {
+              	//INCREASE THE VECTOR BY 1
+                Vector temp = (Vector)(vword.value);
+                temp.add(1);
+                vword.value = temp;
+                vwords.set(j,vword);
+                q.value=vwords;
+                words.set(i,q);
+                return;
+              }
+              
+            }
+            //After looping through the entire vector and realize we need to add a new document
+            //create a new doc.
+            Vector outer = new Vector();
+            outer.add(1);
+            Pair r = new Pair((String)(((Pair) p.value).key),outer);
+            vwords.add(r);
+            q.value = vwords;
+            words.set(i, q);
+            return;
+
+          }
+        }
+        //if it's a word that is not in the shuffle's vector, we make a new pair
+        Vector outer = new Vector();
+        outer.add(1);
+        Pair r = new Pair((String)(((Pair) p.value).key),outer);
+        Vector doc_vec = new Vector();
+        doc_vec.add(r);
+        Pair x = new Pair((String)p.key, doc_vec);
+        words.add(x);
+      }
+
+    }
+    //Charcount
+    else
+    {
+      //LOOKS FOR THE CHAR
+      for (int i =0; i < words.size();i++)
+      {
+        Pair q = (Pair) (words.get(i));
+        //if the key is the same, add 1 to the temp vector
+        if ( ((String) q.key).equals((String)p.key))
+        {
+          Vector temp = (Vector) q.value;
+          temp.add(1);
+          q.value = temp;
+          words.set(i,q);
+          return;
+        }
+      }
+      //Initialization
+      Vector temp_vec = new Vector();
+      temp_vec.add(1);
+      p.value = temp_vec;
+      words.add(p);
+    }
+  }
+
+  
+    public Vector get(){ return words;}
+}

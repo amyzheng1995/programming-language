@@ -1,0 +1,13 @@
+module mapreduce;
+
+behavior Reduce {
+  MapReduce kernel;
+  public Reduce(MapReduce mr) {
+    kernel = mr;
+    System.out.println(self);
+  }
+  Pair reduce(Pair p) {
+    return kernel.reduce(p); // use the reduce function of the kernel
+  }
+}
+
